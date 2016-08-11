@@ -1,0 +1,18 @@
+[local]
+localhost
+
+[all_servers:vars]
+ansible_ssh_private_key_file=~/Downloads/markokorhonendruidfi.pem
+ansible_user=ubuntu
+ansible_port=22
+
+[all_servers:children]
+xenials
+appservers
+
+[xenials]
+
+
+[appservers]
+i-01226e8d ansible_host=52.49.122.45
+i-06226e8a ansible_host=52.208.211.15

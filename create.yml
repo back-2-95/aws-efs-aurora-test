@@ -1,0 +1,113 @@
+---
+- hosts: local
+  connection: local
+  gather_facts: false
+
+  tasks:
+  - name: Create application instance(s)
+    local_action:
+      module: ec2
+      region: "{{ druid_cloud_region }}"
+      group: ['default', 'druid-app-servers', 'druid-ssh-access']
+      keypair: "{{ druid_cloud_keypair }}"
+      instance_type: "{{ druid_cloud_ec2_instance_type }}"
+      instance_tags:
+          Name: "nameofthepannu"
+          DruidDrupalCloud: "Testing"
+      image: "{{ druid_cloud_ec2_image }}"
+      vpc_subnet_id: "{{ druid_cloud_vpc_subnet_id }}"
+      assign_public_ip: true
+#      exact_count: 5
+#      count_tag: foo
+      wait: true
+      wait_timeout: 600
+    register: ec2
+
+  - name: Add new instance to host group
+    add_host: hostname={{ item.public_ip }} groupname=launched
+    with_items: "{{ ec2.instances }}"
+
+  - name: Wait for SSH to come up
+    wait_for: host={{ item.public_dns_name }} port=22 state=started
+    with_items: "{{ ec2.instances }}"
+
+- name: Magic on Ubuntu Xenials (16.04) to get python 2.7
+  hosts: launched
+  gather_facts: false
+  become_user: root
+  become: yes
+
+  vars:
+    ansible_user: "{{ druid_cloud_ec2_user }}"
+    ansible_port: 22
+    ansible_ssh_private_key_file: "{{ druid_cloud_keys_locally }}"
+
+  pre_tasks:
+    - name: apt-get update
+      raw: apt-get update -qq
+    - name: Install python 2.7
+      raw: apt-get install -qq python
+    - name: gather facts
+      setup:
+
+- name: Configure instance(s)
+  hosts: launched
+  become: yes
+  gather_facts: true
+
+  vars:
+    ansible_user: "{{ druid_cloud_ec2_user }}"
+    ansible_port: 22
+    ansible_ssh_private_key_file: "{{ druid_cloud_keys_locally }}"
+
+  pre_tasks:
+
+  - name: Create {{ druid_admin_group }} usergroup
+    group: name={{ druid_admin_group }} system=yes state=present
+
+  - name: Ensure sudoers.d is enabled
+    lineinfile: dest=/etc/sudoers regexp="^#includedir /etc/sudoers.d" line="#includedir /etc/sudoers.d" state=present backup=yes
+
+  - name: Create file /etc/sudoers.d/{{ druid_admin_group }} and group rules line
+    lineinfile: >
+      dest=/etc/sudoers.d/{{ druid_admin_group }}
+      owner=root
+      group=root
+      mode=0440
+      line="%{{ druid_admin_group }} ALL=(ALL) ALL"
+      state=present
+      create=yes
+      validate='visudo -cf %s'
+
+  - name: Add line to file /etc/sudoers.d/{{ druid_admin_group }} with group rules NOPASSWD
+    lineinfile: >
+      dest=/etc/sudoers.d/{{ druid_admin_group }}
+      line="%{{ druid_admin_group }} ALL=(ALL) NOPASSWD:ALL"
+      state=present
+      validate='visudo -cf %s'
+
+  - name: Add line to file /etc/sudoers.d/{{ druid_admin_group }} with no need to requiretty
+    lineinfile: >
+      dest=/etc/sudoers.d/{{ druid_admin_group }}
+      line="Defaults:%{{ druid_admin_group }} !requiretty"
+      state=present
+      validate='visudo -cf %s'
+
+  - name: Create Druid admins
+    user: name={{ item }} groups="root,{{ druid_admin_group }}" shell=/bin/bash
+    with_items: "{{ druid_admins }}"
+
+  - name: Set SSH keys for user
+    authorized_key: user={{ item }} key=https://github.com/{{ item }}.keys
+    with_items: "{{ druid_admins }}"
+
+  roles:
+    - { role: back-2-95.aws-efs }
+    #- { role: geerlingguy.git }
+    #- { role: geerlingguy.php }
+    #- { role: geerlingguy.composer }
+    #- { role: geerlingguy.drush }
+
+  tasks:
+  - name: "Show results"
+    debug: msg="Login with ssh {{ druid_cloud_ec2_user }}@{{ inventory_hostname }} -i {{ druid_cloud_keys_locally }}"

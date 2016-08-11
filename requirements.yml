@@ -1,0 +1,8 @@
+---
+- src: https://github.com/back-2-95/ansible-role-aws-efs
+  version: master
+  name: back-2-95.aws-efs
+
+- src: geerlingguy.apache
+- src: geerlingguy.drush
+- src: dieswaytoofast.ansible_docker

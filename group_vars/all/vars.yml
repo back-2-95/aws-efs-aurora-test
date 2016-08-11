@@ -1,0 +1,21 @@
+---
+druid_cloud_keys_locally: "~/Downloads/markokorhonendruidfi.pem"
+
+druid_admin_group: "druid_admin"
+druid_admins:
+  - back-2-95
+  - jussil
+
+druid_cloud_vpc_subnet_id: "subnet-ddaea684"
+
+druid_cloud_ec2_image: "ami-a4d44ed7"
+druid_cloud_ec2_instance_type: "t2.micro"
+druid_cloud_ec2_user: "ubuntu"
+druid_cloud_keypair: "marko.korhonen@druid.fi"
+druid_cloud_region: "eu-west-1"
+
+
+aws_efs_paths:
+- { path: "/home/efs", owner: "root", group: "root", mode: "0755", region: "{{ druid_cloud_region }}", filesystem_id: "fs-dc1df115"}
+
+ansible_docker_user: "ubuntu"

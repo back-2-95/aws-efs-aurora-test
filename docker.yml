@@ -1,0 +1,51 @@
+---
+- hosts: appservers:!xenials
+
+  become_user: root
+  become: yes
+
+  vars:
+    ansible_user: ubuntu
+    ansible_port: 22
+
+  pre_tasks:
+#    - name: Create use for Docker
+#      user: name={{ ansible_docker_user }}
+    - name: set Docker tmp path
+      lineinfile: dest=/etc/default/docker regexp='^export TMPDIR=' line='export TMPDIR="/home/efs/docker-tmp"'
+      notify: restart docker
+    - name: set Docker images path
+      lineinfile: dest=/etc/default/docker regexp='^DOCKER_OPTS=' line='DOCKER_OPTS="--dns 8.8.8.8 --dns 8.8.4.4 -g /home/efs/docker-images"'
+
+  tasks:
+#    - name: make sure apache2 is not running
+#      service: name=apache2 state=stopped
+#
+#    - name: Make sure needed packages are present
+#      package: name={{ item }} state=present
+#      with_items:
+#      - python-docker
+
+    - name: data container
+      docker_container:
+        name: data
+        image: busybox
+        state: started
+        restart: yes
+        volumes:
+        - /home/efs
+
+    - name: nginx/php container
+      docker_container:
+        name: web
+        image: million12/nginx-php
+        state: started
+        restart: yes
+        published_ports:
+        - "80:80"
+        volumes_from:
+        - data
+
+  handlers:
+    - name: restart docker
+      service: name=docker state=restarted

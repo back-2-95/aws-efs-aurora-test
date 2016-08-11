@@ -1,0 +1,72 @@
+---
+- hosts: xenials
+
+  gather_facts: false
+
+  become_user: root
+  become: yes
+
+  vars:
+    ansible_user: ubuntu
+    ansible_port: 22
+
+  pre_tasks:
+    #- debug: msg="Run pre-tasks on Xenial {{ ansible_user }}@{{ ansible_host }}:{{ ansible_port }} with {{ ansible_ssh_private_key }}"
+    - name: apt-get update
+      raw: apt-get update -qq
+    - name: Install python 2.7
+      raw: apt-get install -qq python
+    - name: gather facts
+      setup:
+
+- hosts: appservers:!xenials
+
+  become_user: root
+  become: yes
+
+  vars:
+    ansible_user: ubuntu
+    ansible_port: 22
+
+  pre_tasks:
+    - name: Create user for Docker
+      user: name={{ ansible_docker_user }}
+
+  roles:
+    - { role: back-2-95.aws-efs }
+#    - { role: geerlingguy.php }
+#    - { role: geerlingguy.composer }
+#    - { role: geerlingguy.drush }
+#    - { role: dieswaytoofast.ansible_docker }
+
+  tasks:
+    - name: make sure apache2 is running
+      service: name=apache2 state=started
+
+#    - name: Install apache & php
+#      package: name={{ item }} state=present
+#      with_items:
+#      - apache2
+#      - php
+#      - php-cli
+#      - php-dom
+#      - php-gd
+#      - php-mbstring
+#      - php-mysql
+#      - php-pdo
+#      - php-xml
+#      - libapache2-mod-php
+
+#    - name: Change directory path
+#      lineinfile: dest=/etc/apache2/apache2.conf regexp='^<Directory /var/www/>' line='<Directory /home/efs/website>'
+#      notify:
+#        - restart apache2
+#
+#    - name: Change documentroot path
+#      lineinfile: dest=/etc/apache2/sites-enabled/000-default.conf regexp='DocumentRoot /var/www/html' line='DocumentRoot /home/efs/website>'
+#      notify:
+#        - restart apache2
+
+  handlers:
+    - name: restart apache2
+      service: name=apache2 state=restarted
